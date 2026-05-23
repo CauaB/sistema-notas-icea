@@ -1,0 +1,10 @@
+const mongoose = require('mongoose');
+
+const faltaSchema = new mongoose.Schema({
+  aluno: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  disciplina: { type: mongoose.Schema.Types.ObjectId, ref: 'Disciplina', required: true },
+  data: { type: Date, required: true },
+  quantidade: { type: Number, default: 1 }
+});
+
+module.exports = mongoose.model('Falta', faltaSchema);
