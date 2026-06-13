@@ -1,31 +1,42 @@
+global.crypto = require('crypto');
 const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config();
-
-// Importa as rotas de autenticação
-const authRoutes = require('./routes/authRoutes');
-
+const mongoose = require('mongoose'); // <--- IMPORTA O MONGOOSE
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI;
-
-// Conexão com o Banco de Dados
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ Conectado ao MongoDB com sucesso!'))
-  .catch((err) => console.error('❌ Erro ao conectar ao MongoDB:', err));
-
-// Rota de teste original
-app.get('/', (req, res) => {
-  res.json({ message: '🚀 API do ICEA rodando perfeitamente!' });
+// 1. Liberação do CORS (Para o Flutter conectar)
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
 });
 
-// Habilita as rotas de login e registro no caminho /api/auth
-app.use('/api/auth', authRoutes);
+// Permite que o Node entenda JSON
+app.use(express.json());
 
+//
+mongoose.connect('mongodb://mongo_db:27017/icea_db')
+    .then(() => console.log('🔥 Conectado ao MongoDB com sucesso!'))
+    .catch((err) => console.log('❌ Erro ao conectar no MongoDB:', err));
+
+
+// 3. Importação das Rotas
+const authRoutes = require('./routes/authRoutes');
+const disciplinaRoutes = require('./routes/disciplinaRoutes');
+const diarioRoutes = require('./routes/diarioRoutes');
+const mensagemRoutes = require('./routes/mensagemRoutes');
+
+// 4. Configuração dos caminhos (URLs)
+app.use('/api/auth', authRoutes);
+app.use('/api/disciplinas', disciplinaRoutes);
+app.use('/api/diarios', diarioRoutes);
+app.use('/api/mensagens', mensagemRoutes);
+
+// 5. Iniciar o servidor
+const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`🚀 Servidor rodando perfeitamente na porta ${PORT}`);
 });
