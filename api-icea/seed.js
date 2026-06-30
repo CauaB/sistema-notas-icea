@@ -5,10 +5,10 @@ const bcrypt = require('bcryptjs');
 const Usuario = require('./src/models/Usuario'); 
 const Disciplina = require('./src/models/Disciplina');
 
-// AJUSTE O SEU LINK DO MONGODB AQUI
-const MONGO_URI = 'mongodb://localhost:27017/icea_db';
+// O SEU LINK CORRETO DO MONGODB BASEADO NO .ENV
+const MONGO_URI = 'mongodb://localhost:27017/icea_db'; 
 
-// Lista exata de disciplinas do 1º ao 6º período (com as turmas duplas solicitadas)
+// Lista exata de disciplinas do 1º ao 6º período
 const nomeDisciplinas = [
   "Programação de Computadores I", "Fundamentos de Cálculo", "Fundamentos de GAAL", "Fundamentos de SI", "Informática e Sociedade", "Metodologia de Pesquisa",
   "Programação de Computadores II", 
@@ -21,7 +21,7 @@ const nomeDisciplinas = [
   "Gerência de Projetos de Software", "Sistemas Web I", "Interação Humano-Computador", "Linguagens de Programação", "Sistemas Distribuídos"
 ];
 
-// Nomes e Sobrenomes para gerar combinações reais
+// Nomes e Sobrenomes base
 const nomes = ["Ana", "Bruno", "Carlos", "Daniela", "Eduardo", "Fernanda", "Gabriel", "Helena", "Igor", "Julia", "Lucas", "Mariana", "Nicolas", "Olivia", "Pedro", "Rafael", "Sofia", "Tiago", "Vitoria", "Cauã"];
 const sobrenomes = ["Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira", "Lima", "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida"];
 
@@ -62,22 +62,29 @@ async function runSeed() {
     // 1. LIMPEZA DOS DADOS ATUAIS
     console.log("🧹 A limpar utilizadores antigos (mantendo Admin) e disciplinas...");
     await Disciplina.deleteMany({});
-    // Apaga todos onde o tipo NÃO é Admin
-    await Usuario.deleteMany({ tipo: { $ne: 'Admin' } }); 
+    await Usuario.deleteMany({ tipo: { $ne: 'Admin' } }); // Apaga todos, exceto Admin
 
-    // 2. PREPARAR A SENHA '123456' CRIPTOGRAFADA
+    // 2. GERAR NOMES ÚNICOS (Sem Números)
+    // Combinando os 20 nomes com 15 sobrenomes, temos 300 nomes únicos
+    const todosNomesUnicos = [];
+    for (const n of nomes) {
+      for (const s of sobrenomes) {
+        todosNomesUnicos.push(`${n} ${s}`);
+      }
+    }
+    shuffleArray(todosNomesUnicos); // Misturamos tudo para ficar aleatório
+
+    // 3. PREPARAR A SENHA '123456' CRIPTOGRAFADA
     const salt = await bcrypt.genSalt(10);
     const senhaHash = await bcrypt.hash('123456', salt);
 
-    // 3. CRIAR 30 PROFESSORES
+    // 4. CRIAR 30 PROFESSORES
     console.log("👨‍🏫 A gerar 30 Professores...");
     const professoresSeed = [];
-    for (let i = 1; i <= 30; i++) {
-      const nomeBase = nomes[Math.floor(Math.random() * nomes.length)];
-      const sobrenomeBase = sobrenomes[Math.floor(Math.random() * sobrenomes.length)];
+    for (let i = 0; i < 30; i++) {
       professoresSeed.push({
-        nome: `${nomeBase} ${sobrenomeBase} (Prof ${i})`,
-        email: `prof${i}@icea.com`,
+        nome: todosNomesUnicos[i], // Pega os primeiros 30 nomes
+        email: `prof${i+1}@icea.com`,
         cpf: gerarCPFUnico(),
         dataNascimento: gerarDataNascimento(),
         senha: senhaHash,
@@ -86,15 +93,13 @@ async function runSeed() {
     }
     const professoresInseridos = await Usuario.insertMany(professoresSeed);
 
-    // 4. CRIAR 500 ALUNOS
-    console.log("🎓 A gerar 500 Alunos...");
+    // 5. CRIAR 100 ALUNOS
+    console.log("🎓 A gerar 100 Alunos...");
     const alunosSeed = [];
-    for (let i = 1; i <= 500; i++) {
-      const nomeBase = nomes[Math.floor(Math.random() * nomes.length)];
-      const sobrenomeBase = sobrenomes[Math.floor(Math.random() * sobrenomes.length)];
+    for (let i = 30; i < 130; i++) {
       alunosSeed.push({
-        nome: `${nomeBase} ${sobrenomeBase} ${i}`,
-        email: `aluno${i}@icea.com`,
+        nome: todosNomesUnicos[i], // Pega os próximos 100 nomes da lista
+        email: `aluno${i-29}@icea.com`,
         cpf: gerarCPFUnico(),
         dataNascimento: gerarDataNascimento(),
         senha: senhaHash,
@@ -103,20 +108,35 @@ async function runSeed() {
     }
     const alunosInseridos = await Usuario.insertMany(alunosSeed);
 
-    // 5. CRIAR DISCIPLINAS E MATRICULAR ALUNOS
-    console.log("📚 A gerar Disciplinas e a alocar alunos (15 a 35 por turma)...");
+    // 6. CRIAR DISCIPLINAS E MATRICULAR ALUNOS
+    // Regra: Exatamente 15 alunos por disciplina, máximo de 5 disciplinas por aluno
+    console.log("📚 A gerar Disciplinas e a alocar alunos (Exatamente 15 por turma, limite de 5 por aluno)...");
+    
+    const matriculasPorAluno = {};
+    for (const aluno of alunosInseridos) {
+      matriculasPorAluno[aluno._id] = 0; // Inicializa o contador de disciplinas de cada aluno
+    }
+
     const disciplinasSeed = [];
 
     for (const materia of nomeDisciplinas) {
       // Escolhe um professor aleatório
       const profAleatorio = professoresInseridos[Math.floor(Math.random() * professoresInseridos.length)];
       
-      // Sorteia quantos alunos terá esta turma (entre 15 e 35)
-      const qtdAlunos = Math.floor(Math.random() * (35 - 15 + 1)) + 15;
-      
-      // Sorteia alunos aleatórios da base total de 500 para esta disciplina
-      const alunosEmbaralhados = shuffleArray([...alunosInseridos]);
-      const alunosSelecionados = alunosEmbaralhados.slice(0, qtdAlunos).map(a => a._id);
+      // Filtra os alunos que ainda têm menos de 5 matrículas
+      let alunosDisponiveis = alunosInseridos.filter(a => matriculasPorAluno[a._id] < 5);
+
+      // Mistura e ordena os alunos disponíveis para priorizar os que têm MENOS matrículas, garantindo distribuição justa
+      shuffleArray(alunosDisponiveis);
+      alunosDisponiveis.sort((a, b) => matriculasPorAluno[a._id] - matriculasPorAluno[b._id]);
+
+      // Seleciona exatamente os 15 primeiros
+      const alunosSelecionados = alunosDisponiveis.slice(0, 15).map(a => a._id);
+
+      // Incrementa o contador desses alunos
+      for (const id of alunosSelecionados) {
+        matriculasPorAluno[id]++;
+      }
 
       disciplinasSeed.push({
         nome: materia,
@@ -134,7 +154,7 @@ async function runSeed() {
     console.log("🎉 POVOAMENTO CONCLUÍDO COM SUCESSO!");
     console.log(`- ${professoresInseridos.length} Professores criados.`);
     console.log(`- ${alunosInseridos.length} Alunos criados.`);
-    console.log(`- ${disciplinasSeed.length} Disciplinas criadas.`);
+    console.log(`- ${disciplinasSeed.length} Disciplinas criadas (com 15 alunos cada).`);
     console.log("Todas as senhas novas são: 123456");
 
     process.exit(0);

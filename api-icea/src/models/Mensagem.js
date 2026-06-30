@@ -4,7 +4,8 @@ const MensagemSchema = new mongoose.Schema({
   remetente: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
   destinatario: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
   texto: { type: String, required: true },
-  dataEnvio: { type: Date, default: Date.now }
+  dataEnvio: { type: Date, default: Date.now },
+  lida: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Mensagem', MensagemSchema);

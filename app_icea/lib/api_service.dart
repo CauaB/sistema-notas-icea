@@ -51,12 +51,22 @@ class ApiService {
   }
 
   // ================= USUÁRIOS =================
-  static Future<List<dynamic>> buscarUsuarios() async {
+static Future<List<dynamic>> buscarUsuarios([String? meuId]) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/auth/usuarios'));
+      String url = '$baseUrl/auth/usuarios';
+      
+      // Se receber um ID, passa pela URL em vez do cabeçalho para evitar bloqueios no Chrome (CORS)
+      if (meuId != null) {
+        url += '?meuId=$meuId'; 
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); // Retorna a lista que veio do MongoDB
+        return jsonDecode(response.body); 
       } else {
         return [];
       }
@@ -67,7 +77,7 @@ class ApiService {
   }
 
 // ================= ATUALIZAR USUÁRIO (ADMIN E PERFIL) =================
-  static Future<bool> atualizarUsuario(String id, String novoNome, String novoEmail, String novoCpf, String novaDataNascimento, String novoTipo, [String? novaSenha]) async {
+  static Future<bool> atualizarUsuario(String id, String novoNome, String novoEmail, String novoCpf, String novaDataNascimento, String novoTipo, [String? novaSenha, String? novaObservacao]) async {
     try {
       final Map<String, dynamic> bodyPayload = {
         'nome': novoNome, 
@@ -77,9 +87,13 @@ class ApiService {
         'tipo': novoTipo
       };
       
-      // Se a senha foi preenchida, adiciona ao envio para o banco de dados
       if (novaSenha != null && novaSenha.trim().isNotEmpty) {
         bodyPayload['senha'] = novaSenha;
+      }
+      
+      // Adiciona a observação ao envio se existir
+      if (novaObservacao != null) {
+        bodyPayload['observacao'] = novaObservacao;
       }
 
       final response = await http.put(
@@ -127,6 +141,15 @@ class ApiService {
       return response.statusCode == 201;
     } catch (e) {
       return false;
+    }
+  }
+
+// ================= MARCAR MENSAGENS COMO LIDAS =================
+  static Future<void> marcarMensagensLidas(String meuId, String contatoId) async {
+    try {
+      await http.put(Uri.parse('$baseUrl/mensagens/lidas/$meuId/$contatoId'));
+    } catch (e) {
+      // Ignora erro de rede silenciosamente
     }
   }
 

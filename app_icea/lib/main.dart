@@ -20,7 +20,7 @@ class ICEAApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ICEA',
+      title: 'Portal ICEA',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF003366),
@@ -36,7 +36,7 @@ class ICEAApp extends StatelessWidget {
           centerTitle: true,
           elevation: 0, // AppBar plana moderna
           titleTextStyle: TextStyle(
-            color: Colors.white,
+            color: Colors.white, // Textos superiores em branco
             fontSize: 18, 
             fontWeight: FontWeight.w600, 
             letterSpacing: 0.5,
@@ -124,8 +124,8 @@ Widget tituloComUFOP(String texto) {
     mainAxisSize: MainAxisSize.min,
     children: [
       Image.asset(
-        'assets/logo.png',
-        height: 62,
+        'assets/logo-ufop.jpg',
+        height: 32,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return const Icon(Icons.school, color: Colors.white);
@@ -141,7 +141,7 @@ Widget tituloComUFOP(String texto) {
 }
 
 // ============================================================================
-// TELA DE LOGIN (DESIGN PREMIUM E LOGO SOMBREADA)
+// TELA DE LOGIN (DESIGN PREMIUM E LOGO SOMBREADA SEM CÍRCULO)
 // ============================================================================
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -406,9 +406,9 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // LOGO SOMBREADA
-                Container(
-                    height: 200,
+                  // LOGO SOMBREADA SEM O CÍRCULO BRANCO
+                  Container(
+                    height: 120,
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
@@ -422,16 +422,26 @@ class _LoginPageState extends State<LoginPage> {
                       'assets/logo.png',
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.school, color: Colors.white, size: 70);
+                        return const Icon(Icons.school, color: Colors.white, size: 80);
                       },
                     ),
                   ),
-                  const SizedBox(height: 26),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'ICEA',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Text(
-                    'Sistema para Lançamento de Notas e Faltas - ICEA',
+                    'Sistema para Lançamento de Notas e Faltas',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
-                      fontSize: 18,
+                      fontSize: 16,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -544,9 +554,8 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 // ============================================================================
-// PERFIL DO USUÁRIO (PERMITE EDITAR DADOS BÁSICOS, BLOQUEIA CPF/NASCIMENTO)
+// PERFIL DO USUÁRIO (NOME, CPF E NASCIMENTO BLOQUEADOS)
 // ============================================================================
-
 class PerfilPage extends StatefulWidget {
   final Map<String, dynamic> usuarioLogado;
 
@@ -563,15 +572,15 @@ class _PerfilPageState extends State<PerfilPage> {
   late TextEditingController _dataNascCtrl;
   late TextEditingController _tipoCtrl;
   late TextEditingController _senhaCtrl;
+  late TextEditingController _obsCtrl;
 
-@override
+  @override
   void initState() {
     super.initState();
     _nomeCtrl = TextEditingController(text: widget.usuarioLogado['nome'] ?? 'Não cadastrado');
     _emailCtrl = TextEditingController(text: widget.usuarioLogado['email'] ?? '');
     _senhaCtrl = TextEditingController(); 
     
-    // Forçamos a conversão para String usando ?.toString() para evitar erros do backend
     String cpfCru = widget.usuarioLogado['cpf']?.toString() ?? '';
     if (cpfCru.length == 11) {
       cpfCru = "${cpfCru.substring(0,3)}.${cpfCru.substring(3,6)}.${cpfCru.substring(6,9)}-${cpfCru.substring(9,11)}";
@@ -582,6 +591,9 @@ class _PerfilPageState extends State<PerfilPage> {
     _dataNascCtrl = TextEditingController(text: dataNasc.isEmpty ? 'Não cadastrada' : dataNasc);
     
     _tipoCtrl = TextEditingController(text: widget.usuarioLogado['tipo'] ?? 'Desconhecido');
+    
+    String obs = widget.usuarioLogado['observacao']?.toString() ?? '';
+    _obsCtrl = TextEditingController(text: obs.isEmpty ? 'Sem observações' : obs);
   }
 
   void _salvarAlteracoes() async {
@@ -613,7 +625,6 @@ class _PerfilPageState extends State<PerfilPage> {
       builder: (c) => const Center(child: CircularProgressIndicator()),
     );
 
-    // Envia os dados mantendo os originais para os bloqueados e atualizando email/senha
     bool suc = await ApiService.atualizarUsuario(
       widget.usuarioLogado['_id'],
       widget.usuarioLogado['nome'] ?? '', 
@@ -621,7 +632,8 @@ class _PerfilPageState extends State<PerfilPage> {
       widget.usuarioLogado['cpf'] ?? '', 
       widget.usuarioLogado['dataNascimento'] ?? '',
       widget.usuarioLogado['tipo'] ?? 'Aluno',
-      senha, // Envia a nova senha (se estiver em branco, a API ignora e mantém a atual)
+      senha, 
+      widget.usuarioLogado['observacao']
     );
 
     if (context.mounted) Navigator.pop(context);
@@ -629,7 +641,7 @@ class _PerfilPageState extends State<PerfilPage> {
     if (suc) {
       setState(() {
         widget.usuarioLogado['email'] = email;
-        _senhaCtrl.clear(); // Limpa o campo de senha após sucesso
+        _senhaCtrl.clear();
       });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -668,7 +680,6 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
             const SizedBox(height: 32),
             
-            // DADOS EDITÁVEIS
             const Align(
               alignment: Alignment.centerLeft, 
               child: Text('Dados Editáveis', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF003366)))
@@ -694,7 +705,6 @@ class _PerfilPageState extends State<PerfilPage> {
               child: Divider(),
             ),
 
-            // DADOS BLOQUEADOS (READ-ONLY) COM CARTÕES ELEGANTES
             const Align(
               alignment: Alignment.centerLeft, 
               child: Text('Dados Bloqueados (Somente Leitura)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey))
@@ -707,6 +717,8 @@ class _PerfilPageState extends State<PerfilPage> {
             _buildLockedField('Data de Nascimento', _dataNascCtrl.text, Icons.calendar_today_outlined),
             const SizedBox(height: 12),
             _buildLockedField('Acesso (Perfil)', _tipoCtrl.text, Icons.admin_panel_settings_outlined),
+            const SizedBox(height: 12),
+            _buildLockedField('Observações', _obsCtrl.text, Icons.notes_outlined),
 
             const SizedBox(height: 32),
             SizedBox(
@@ -724,13 +736,12 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  // WIDGET AUXILIAR PARA CAMPOS BLOQUEADOS
   Widget _buildLockedField(String label, String value, IconData icon) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100, // Fundo cinza suave para indicar que é inativo
+        color: Colors.grey.shade100, 
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade300, width: 1.5),
       ),
@@ -763,12 +774,13 @@ class _PerfilPageState extends State<PerfilPage> {
 }
 
 // ============================================================================
-// CHAT - FILTRO E ORGANIZAÇÃO ALFABÉTICA
+// CHAT - FILTRO E ORGANIZAÇÃO ALFABÉTICA (DESTAQUE DE NÃO LIDAS)
 // ============================================================================
 class ChatSearchPage extends StatefulWidget {
   final Map<String, dynamic> usuarioLogado;
+  final String filtroInicial;
 
-  const ChatSearchPage({super.key, required this.usuarioLogado});
+  const ChatSearchPage({super.key, required this.usuarioLogado, this.filtroInicial = 'Todos'});
 
   @override
   State<ChatSearchPage> createState() => _ChatSearchPageState();
@@ -776,10 +788,95 @@ class ChatSearchPage extends StatefulWidget {
 
 class _ChatSearchPageState extends State<ChatSearchPage> {
   String _searchQuery = '';
-  String _filtroAtual = 'Todos';
+  late String _filtroAtual;
+  bool _isLoading = true;
+  List<dynamic> _todosUsuarios = [];
+  bool _temNaoLidas = false;
+  bool _temDuvidas = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _filtroAtual = widget.filtroInicial;
+    _carregarUsuarios();
+  }
+
+  Future<void> _carregarUsuarios() async {
+    final dados = await ApiService.buscarUsuarios(widget.usuarioLogado['_id']);
+    
+    bool temNaoLidas = false;
+    bool temDuvidas = false;
+    final isProf = widget.usuarioLogado['tipo'] == 'Professor';
+
+    // Inspeciona os utilizadores para descobrir as Dúvidas
+    for (var u in dados) {
+      bool unread = u['hasUnread'] == true || (u['mensagensNaoLidas'] != null && u['mensagensNaoLidas'] > 0);
+      if (unread) {
+        temNaoLidas = true;
+        
+        if (isProf) {
+          try {
+            // Se for professor e houver mensagem não lida, verifica a última mensagem!
+            final chat = await ApiService.buscarChat(widget.usuarioLogado['_id'], u['_id']);
+            if (chat.isNotEmpty) {
+              final lastMsg = chat.last;
+              if (lastMsg['remetente'] == u['_id']) {
+                String texto = lastMsg['texto'] ?? '';
+                if (texto.contains('[Dúvida em')) {
+                  temDuvidas = true;
+                  u['isDuvida'] = true;
+                  // Extrai o nome exato da disciplina da mensagem
+                  RegExp exp = RegExp(r'\[Dúvida em (.*?)\]');
+                  var match = exp.firstMatch(texto);
+                  if (match != null) {
+                    u['disciplinaDuvida'] = match.group(1);
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _todosUsuarios = dados;
+        _isLoading = false;
+        _temNaoLidas = temNaoLidas;
+        _temDuvidas = temDuvidas;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Filtra localmente
+    final filteredUsers = _todosUsuarios.where((u) {
+      final nomeMatches = (u['nome'] ?? '').toLowerCase().contains(_searchQuery);
+      
+      bool tipoMatches = false;
+      if (_filtroAtual == 'Todos') {
+        tipoMatches = true;
+      } else if (_filtroAtual == 'Não Lidas') {
+        tipoMatches = (u['hasUnread'] == true || (u['mensagensNaoLidas'] != null && u['mensagensNaoLidas'] > 0));
+      } else if (_filtroAtual == 'Dúvidas') {
+        tipoMatches = u['isDuvida'] == true;
+      } else {
+        tipoMatches = u['tipo'] == _filtroAtual;
+      }
+      
+      return nomeMatches && tipoMatches && u['_id'] != widget.usuarioLogado['_id'];
+    }).toList();
+
+    filteredUsers.sort((a, b) => (a['nome'] ?? '').toLowerCase().compareTo((b['nome'] ?? '').toLowerCase()));
+
+    // Lista de abas dinâmica
+    List<String> abas = ['Todos', 'Aluno', 'Professor', 'Não Lidas'];
+    if (widget.usuarioLogado['tipo'] == 'Professor') {
+      abas.add('Dúvidas');
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mensagens Diretas', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -805,111 +902,125 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                   ),
                   onChanged: (val) {
                     setState(() {
-                      _searchQuery = val;
+                      _searchQuery = val.toLowerCase();
                     });
                   },
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: ['Todos', 'Aluno', 'Professor'].map((tipo) {
-                    final isSel = _filtroAtual == tipo;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ChoiceChip(
-                        label: Text(
-                          tipo == 'Todos' ? 'Todos' : '${tipo}s',
-                          style: TextStyle(
-                            color: isSel ? Colors.white : Colors.grey.shade700,
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: abas.map((tipo) {
+                      final isSel = _filtroAtual == tipo;
+                      final isNaoLidas = tipo == 'Não Lidas';
+                      final isDuvidas = tipo == 'Dúvidas';
+                      
+                      // Destaques vermelhos ou laranjas
+                      final hasHighlight = (isNaoLidas && _temNaoLidas) || (isDuvidas && _temDuvidas);
+
+                      String labelText = tipo;
+                      if (tipo == 'Aluno' || tipo == 'Professor') labelText = '${tipo}s';
+                      
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ChoiceChip(
+                          label: Text(
+                            labelText,
+                            style: TextStyle(
+                              color: (isSel || hasHighlight) ? Colors.white : Colors.grey.shade700,
+                              fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
+                          selected: isSel,
+                          selectedColor: hasHighlight ? (isDuvidas ? Colors.orange.shade800 : Colors.red.shade800) : const Color(0xFF003366),
+                          backgroundColor: hasHighlight ? (isDuvidas ? Colors.orangeAccent : Colors.redAccent) : Colors.grey.shade100,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(color: isSel ? (hasHighlight ? Colors.transparent : const Color(0xFF003366)) : Colors.transparent),
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _filtroAtual = tipo;
+                              });
+                            }
+                          },
                         ),
-                        selected: isSel,
-                        selectedColor: const Color(0xFF003366),
-                        backgroundColor: Colors.grey.shade100,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(color: isSel ? const Color(0xFF003366) : Colors.grey.shade300),
-                        ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _filtroAtual = tipo;
-                            });
-                          }
-                        },
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 )
               ],
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<dynamic>>(
-              future: ApiService.buscarUsuarios(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('Nenhum utilizador encontrado.', style: TextStyle(color: Colors.grey)));
-                }
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : filteredUsers.isEmpty
+                  ? Center(child: Text('Nenhum resultado encontrado.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final u = filteredUsers[index];
+                        final bool temPendente = u['hasUnread'] == true || (u['mensagensNaoLidas'] != null && u['mensagensNaoLidas'] > 0);
+                        
+                        final bool isDuvidaTab = _filtroAtual == 'Dúvidas';
+                        final bool showDisciplina = isDuvidaTab && u['isDuvida'] == true && u['disciplinaDuvida'] != null;
 
-                final filteredUsers = snapshot.data!.where((u) {
-                  final nomeMatches = (u['nome'] ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
-                  final tipoMatches = _filtroAtual == 'Todos' || u['tipo'] == _filtroAtual;
-                  return nomeMatches && tipoMatches && u['_id'] != widget.usuarioLogado['_id'];
-                }).toList();
-
-                filteredUsers.sort((a, b) => (a['nome'] ?? '').toLowerCase().compareTo((b['nome'] ?? '').toLowerCase()));
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: filteredUsers.length,
-                  itemBuilder: (context, index) {
-                    final u = filteredUsers[index];
-                    return Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        leading: CircleAvatar(
-                          radius: 26,
-                          backgroundColor: u['tipo'] == 'Professor' ? Colors.green.shade100 : Colors.blue.shade100,
-                          child: Text(
-                            (u['nome'] ?? 'U')[0].toUpperCase(),
-                            style: TextStyle(
-                              color: u['tipo'] == 'Professor' ? Colors.green.shade800 : Colors.blue.shade800, 
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          u['nome'] ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF001A33)),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text('${u['tipo']}', style: TextStyle(color: Colors.grey.shade600)),
-                        ),
-                        trailing: Icon(Icons.chat_bubble_outline, color: Colors.grey.shade400),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatThreadPage(
-                                meuUsuario: widget.usuarioLogado,
-                                contatoUsuario: u,
+                        return Card(
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            leading: CircleAvatar(
+                              radius: 26,
+                              backgroundColor: u['tipo'] == 'Professor' ? Colors.green.shade100 : Colors.blue.shade100,
+                              child: Text(
+                                (u['nome'] ?? 'U')[0].toUpperCase(),
+                                style: TextStyle(
+                                  color: u['tipo'] == 'Professor' ? Colors.green.shade800 : Colors.blue.shade800, 
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                            title: Text(
+                              // SÓ MOSTRA O NOME DA DISCIPLINA NA ABA DÚVIDAS
+                              showDisciplina ? '${u['nome']} (${u['disciplinaDuvida']})' : (u['nome'] ?? ''),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold, 
+                                fontSize: 16, 
+                                color: showDisciplina ? Colors.orange.shade900 : const Color(0xFF001A33)
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(showDisciplina ? 'Dúvida Pendente' : '${u['tipo']}', style: TextStyle(color: showDisciplina ? Colors.orange.shade800 : Colors.grey.shade600, fontWeight: showDisciplina ? FontWeight.bold : FontWeight.normal)),
+                            ),
+                            trailing: temPendente
+                                ? Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(color: (isDuvidaTab && u['isDuvida'] == true) ? Colors.orangeAccent : Colors.redAccent, shape: BoxShape.circle),
+                                    child: const Icon(Icons.mark_email_unread_rounded, color: Colors.white, size: 20),
+                                  )
+                                : Icon(Icons.chat_bubble_outline, color: Colors.grey.shade400),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatThreadPage(
+                                    meuUsuario: widget.usuarioLogado,
+                                    contatoUsuario: u,
+                                  ),
+                                ),
+                              );
+                              setState(() => _isLoading = true);
+                              _carregarUsuarios(); // Recarrega ao voltar para limpar a notificação
+                            },
+                          ),
+                        );
+                      },
+                    ),
           ),
         ],
       ),
@@ -920,8 +1031,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 class ChatThreadPage extends StatefulWidget {
   final Map<String, dynamic> meuUsuario;
   final Map<String, dynamic> contatoUsuario;
+  final String? mensagemInicial; // Recebe a dúvida inicial
 
-  const ChatThreadPage({super.key, required this.meuUsuario, required this.contatoUsuario});
+  const ChatThreadPage({super.key, required this.meuUsuario, required this.contatoUsuario, this.mensagemInicial});
 
   @override
   State<ChatThreadPage> createState() => _ChatThreadPageState();
@@ -929,6 +1041,28 @@ class ChatThreadPage extends StatefulWidget {
 
 class _ChatThreadPageState extends State<ChatThreadPage> {
   final TextEditingController _msgCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Se vier uma mensagem inicial (Dúvida do Fórum), pré-preenche o campo
+    if (widget.mensagemInicial != null) {
+      _msgCtrl.text = widget.mensagemInicial!;
+    }
+    // Avisa o Backend para zerar as mensagens não lidas deste contato
+    ApiService.marcarMensagensLidas(widget.meuUsuario['_id'], widget.contatoUsuario['_id']);
+  }
+
+  // NOVA FUNÇÃO: Formatar a Data e Hora
+  String _formatarDataHora(dynamic dataStr) {
+    if (dataStr == null) return '';
+    try {
+      DateTime dt = DateTime.parse(dataStr.toString()).toLocal();
+      return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} às ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    } catch (_) {
+      return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1011,13 +1145,27 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                 )
                               ],
                             ),
-                            child: Text(
-                              msg['texto'] ?? '',
-                              style: TextStyle(
-                                color: isMe ? Colors.white : const Color(0xFF001A33),
-                                fontSize: 15,
-                                height: 1.3,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg['texto'] ?? '',
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white : const Color(0xFF001A33),
+                                    fontSize: 15,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // EXIBIÇÃO DA DATA E HORA AQUI
+                                Text(
+                                  _formatarDataHora(msg['data'] ?? msg['dataEnvio']),
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white70 : Colors.grey.shade500,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -1043,6 +1191,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                     Expanded(
                       child: TextField(
                         controller: _msgCtrl,
+                        maxLines: null, 
                         decoration: InputDecoration(
                           hintText: 'Escreva uma mensagem...',
                           filled: true,
@@ -1087,9 +1236,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 }
 
-// ============================================================================
-// CHAT DO FÓRUM (DESIGN MODERNO DE CARTÕES DE MENSAGEM)
-// ============================================================================
 class ChatDisciplinaPage extends StatefulWidget {
   final Map<String, dynamic> disciplina;
   final Map<String, dynamic> usuarioLogado;
@@ -1186,8 +1332,11 @@ class _ChatDisciplinaPageState extends State<ChatDisciplinaPage> {
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
+    final prof = widget.disciplina['professor'];
+    final bool isAluno = widget.usuarioLogado['_id'] != prof?['_id'];
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -1203,6 +1352,54 @@ class _ChatDisciplinaPageState extends State<ChatDisciplinaPage> {
             ),
           ],
         ),
+        actions: [
+          // BOTÃO DO ALUNO (Tirar Dúvida Direta)
+          if (prof != null && isAluno)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: IconButton(
+                tooltip: 'Tirar dúvida com o Professor',
+                icon: const Icon(Icons.help_outline_rounded),
+                onPressed: () {
+                  final contatoProf = {
+                    '_id': prof['_id'],
+                    'nome': prof['nome'] ?? 'Professor',
+                    'tipo': 'Professor'
+                  };
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatThreadPage(
+                        meuUsuario: widget.usuarioLogado,
+                        contatoUsuario: contatoProf,
+                        mensagemInicial: '[Dúvida em ${widget.disciplina['nome']}]:\n', 
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          // BOTÃO DO PROFESSOR NO FÓRUM (Abre o chat nas Dúvidas)
+          if (!isAluno)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: IconButton(
+                tooltip: 'Ver Dúvidas Recebidas',
+                icon: const Icon(Icons.mark_email_unread_outlined, color: Colors.orangeAccent),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatSearchPage(
+                        usuarioLogado: widget.usuarioLogado,
+                        filtroInicial: 'Dúvidas', // DIRECIONA DIRETAMENTE PARA A ABA DÚVIDAS
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
       body: StatefulBuilder(
         builder: (context, setStateTela) {
@@ -1544,16 +1741,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 }
 
-class AdminUsuariosTab extends StatelessWidget {
+class AdminUsuariosTab extends StatefulWidget {
   final VoidCallback onUpdate;
 
   const AdminUsuariosTab({super.key, required this.onUpdate});
 
-  void _editarPerfilCompleto(BuildContext context, Map<String, dynamic> usuario) {
+  @override
+  State<AdminUsuariosTab> createState() => _AdminUsuariosTabState();
+}
+
+class _AdminUsuariosTabState extends State<AdminUsuariosTab> {
+  String _searchQuery = '';
+  String _filtroAtual = 'Todos';
+  late Future<List<dynamic>> _futureUsuarios;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureUsuarios = ApiService.buscarUsuarios();
+  }
+
+  void _recarregar() {
+    setState(() {
+      _futureUsuarios = ApiService.buscarUsuarios();
+    });
+    widget.onUpdate();
+  }
+
+void _editarPerfilCompleto(BuildContext context, Map<String, dynamic> usuario) {
     final nomeCtrl = TextEditingController(text: usuario['nome']);
     final emailCtrl = TextEditingController(text: usuario['email']);
     final cpfCtrl = TextEditingController(text: usuario['cpf']);
     final dataNascCtrl = TextEditingController(text: usuario['dataNascimento']);
+    final obsCtrl = TextEditingController(text: usuario['observacao'] ?? '');
     String perfilSel = usuario['tipo'] ?? 'Aluno';
 
     showDialog(
@@ -1608,6 +1828,12 @@ class AdminUsuariosTab extends StatelessWidget {
                         });
                       },
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: obsCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Observações do Cadastro'),
+                    ),
                   ],
                 ),
               ),
@@ -1626,12 +1852,14 @@ class AdminUsuariosTab extends StatelessWidget {
                       cpfCtrl.text.trim(),
                       dataNascCtrl.text.trim(),
                       perfilSel,
+                      null,
+                      obsCtrl.text.trim()
                     );
 
                     if (context.mounted) Navigator.pop(context);
 
                     if (suc) {
-                      onUpdate();
+                      _recarregar(); // Recarrega os dados com cache atualizado
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Dados salvos com sucesso!', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -1653,76 +1881,196 @@ class AdminUsuariosTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future: ApiService.buscarUsuarios(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
-                const SizedBox(height: 16),
-                Text('Nenhum utilizador encontrado.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.length,
-          itemBuilder: (context, index) {
-            final u = snapshot.data![index];
-            final bool isPendente = u['tipo'] == 'Pendente';
-            
-            return Card(
-              color: isPendente ? Colors.orange.shade50 : Colors.white,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: isPendente ? Colors.orange.shade100 : Colors.blue.shade50,
-                  child: Icon(
-                    isPendente ? Icons.warning_amber_rounded : Icons.person, 
-                    color: isPendente ? Colors.orange.shade800 : const Color(0xFF003366)
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+          child: Column(
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Pesquisar por nome, e-mail ou CPF...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
                   ),
+                  filled: true,
+                  fillColor: const Color(0xFFF4F7FC),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
-                title: Text(
-                  u['nome'] ?? '',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF001A33)),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Text('${u['tipo']} • ${u['email']}', style: TextStyle(color: Colors.grey.shade600)),
-                ),
-                trailing: Container(
-                  decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
-                  child: IconButton(
-                    icon: Icon(Icons.edit_rounded, color: Colors.blue.shade700, size: 20),
-                    onPressed: () => _editarPerfilCompleto(context, u),
-                  ),
-                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.toLowerCase();
+                  });
+                },
               ),
-            );
-          },
-        );
-      },
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: ['Todos', 'Aluno', 'Professor', 'Admin', 'Pendente'].map((tipo) {
+                    final isSel = _filtroAtual == tipo;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text(
+                          tipo == 'Todos' ? 'Todos' : '${tipo}s',
+                          style: TextStyle(
+                            color: isSel ? Colors.white : Colors.grey.shade700,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        selected: isSel,
+                        selectedColor: const Color(0xFF003366),
+                        backgroundColor: Colors.grey.shade100,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: isSel ? const Color(0xFF003366) : Colors.grey.shade300),
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _filtroAtual = tipo;
+                            });
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              )
+            ],
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<dynamic>>(
+            future: _futureUsuarios, 
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('Nenhum utilizador encontrado no banco de dados.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+                    ],
+                  ),
+                );
+              }
+
+              final allUsers = snapshot.data!;
+              final filteredUsers = allUsers.where((u) {
+                final nomeMatches = (u['nome'] ?? '').toLowerCase().contains(_searchQuery);
+                final emailMatches = (u['email'] ?? '').toLowerCase().contains(_searchQuery);
+                final cpfMatches = (u['cpf'] ?? '').contains(_searchQuery);
+                
+                final queryMatches = nomeMatches || emailMatches || cpfMatches;
+                final filtroMatches = _filtroAtual == 'Todos' || u['tipo'] == _filtroAtual;
+                
+                return queryMatches && filtroMatches;
+              }).toList();
+
+              // ORDENAÇÃO ALFABÉTICA DOS UTILIZADORES
+              filteredUsers.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+
+              if (filteredUsers.isEmpty) {
+                return Center(
+                  child: Text('Nenhum resultado corresponde à sua pesquisa.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filteredUsers.length,
+                itemBuilder: (context, index) {
+                  final u = filteredUsers[index];
+                  final bool isPendente = u['tipo'] == 'Pendente';
+                  
+                  return Card(
+                    color: isPendente ? Colors.orange.shade50 : Colors.white,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: CircleAvatar(
+                        radius: 24,
+                        backgroundColor: isPendente ? Colors.orange.shade100 : Colors.blue.shade50,
+                        child: Icon(
+                          isPendente ? Icons.warning_amber_rounded : Icons.person, 
+                          color: isPendente ? Colors.orange.shade800 : const Color(0xFF003366)
+                        ),
+                      ),
+                      title: Text(
+                        u['nome'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF001A33)),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text('${u['tipo']} • ${u['email']}', style: TextStyle(color: Colors.grey.shade600)),
+                      ),
+                      trailing: Container(
+                        decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
+                        child: IconButton(
+                          icon: Icon(Icons.edit_rounded, color: Colors.blue.shade700, size: 20),
+                          onPressed: () => _editarPerfilCompleto(context, u),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
-class AdminDisciplinasTab extends StatelessWidget {
+class AdminDisciplinasTab extends StatefulWidget {
   final VoidCallback onUpdate;
 
   const AdminDisciplinasTab({super.key, required this.onUpdate});
 
-  void _criarNova(BuildContext context, List<dynamic> disciplinasExistentes) async {
+  @override
+  State<AdminDisciplinasTab> createState() => _AdminDisciplinasTabState();
+}
+
+class _AdminDisciplinasTabState extends State<AdminDisciplinasTab> {
+  String _searchQuery = '';
+  String? _filtroProfessorId;
+  bool _isLoading = true;
+  List<dynamic> _todasDisciplinas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDados(); 
+  }
+
+  Future<void> _carregarDados() async {
+    setState(() => _isLoading = true);
+    final dados = await ApiService.buscarDisciplinas();
+    if (mounted) {
+      setState(() {
+        _todasDisciplinas = dados;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _criarNova(BuildContext context) async {
     final todos = await ApiService.buscarUsuarios();
     final profs = todos.where((u) => u['tipo'] == 'Professor').toList();
+    
+    // ORDENA OS PROFESSORES ALFABETICAMENTE NA HORA DE CRIAR DISCIPLINA
+    profs.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+    
     final nomeCtrl = TextEditingController();
     String? profSel;
 
@@ -1732,13 +2080,8 @@ class AdminDisciplinasTab extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: const Text(
-                'Nova Disciplina',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Nova Disciplina', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366))),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1752,15 +2095,10 @@ class AdminDisciplinasTab extends StatelessWidget {
                     value: profSel,
                     items: [
                       const DropdownMenuItem(value: null, child: Text('Sem Professor')),
-                      ...profs.map((p) => DropdownMenuItem(
-                        value: p['_id'] as String,
-                        child: Text(p['nome'] ?? ''),
-                      ))
+                      ...profs.map((p) => DropdownMenuItem(value: p['_id'] as String, child: Text(p['nome'] ?? '')))
                     ],
                     onChanged: (val) {
-                      setStateDialog(() {
-                        profSel = val;
-                      });
+                      setStateDialog(() => profSel = val);
                     },
                   )
                 ],
@@ -1776,14 +2114,14 @@ class AdminDisciplinasTab extends StatelessWidget {
                     String nomeMateria = nomeCtrl.text.trim();
                     if (nomeMateria.isEmpty) return;
 
-                    bool jaExiste = disciplinasExistentes.any((d) =>
+                    bool jaExiste = _todasDisciplinas.any((d) =>
                       d['nome'].toString().toLowerCase() == nomeMateria.toLowerCase()
                     );
 
                     if (jaExiste) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Já existe uma matéria com este nome! Adicione "Turma A", "B", etc.', style: TextStyle(fontWeight: FontWeight.bold)),
+                          content: Text('Já existe uma matéria com este nome!', style: TextStyle(fontWeight: FontWeight.bold)),
                           backgroundColor: Colors.redAccent,
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -1793,7 +2131,10 @@ class AdminDisciplinasTab extends StatelessWidget {
 
                     bool suc = await ApiService.criarDisciplina(nomeMateria, profSel);
                     if (context.mounted) Navigator.pop(context);
-                    if (suc) onUpdate();
+                    if (suc) {
+                      _carregarDados();
+                      widget.onUpdate();
+                    }
                   },
                   child: const Text('Criar'),
                 )
@@ -1810,10 +2151,17 @@ class AdminDisciplinasTab extends StatelessWidget {
     final alunosDisp = todos.where((u) => u['tipo'] == 'Aluno').toList();
     final profsDisp = todos.where((u) => u['tipo'] == 'Professor').toList();
 
+    // ORDENA ALUNOS E PROFESSORES ALFABETICAMENTE NA EDIÇÃO
+    alunosDisp.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+    profsDisp.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+
     showDialog(
       context: context,
       builder: (context) {
         List<dynamic> matriculados = List.from((disciplina['alunos'] as List<dynamic>?) ?? []);
+        // ORDENA OS ALUNOS JÁ MATRICULADOS
+        matriculados.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+        
         String? profAtual = disciplina['professor'] != null ? disciplina['professor']['_id'] : null;
         String filtroBusca = '';
 
@@ -1830,13 +2178,8 @@ class AdminDisciplinasTab extends StatelessWidget {
             }).toList();
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Text(
-                'Gerenciar: ${disciplina['nome']}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Gerenciar: ${disciplina['nome']}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366))),
               content: SizedBox(
                 width: double.maxFinite,
                 child: Column(
@@ -1852,15 +2195,10 @@ class AdminDisciplinasTab extends StatelessWidget {
                             value: profAtual,
                             items: [
                               const DropdownMenuItem(value: null, child: Text('Sem Professor')),
-                              ...profsDisp.map((p) => DropdownMenuItem(
-                                value: p['_id'] as String,
-                                child: Text(p['nome'] ?? ''),
-                              ))
+                              ...profsDisp.map((p) => DropdownMenuItem(value: p['_id'] as String, child: Text(p['nome'] ?? '')))
                             ],
                             onChanged: (val) {
-                              setStateDialog(() {
-                                profAtual = val;
-                              });
+                              setStateDialog(() => profAtual = val);
                             },
                           ),
                         ),
@@ -1871,20 +2209,15 @@ class AdminDisciplinasTab extends StatelessWidget {
                             icon: Icon(Icons.save_rounded, color: Colors.green.shade700),
                             onPressed: () async {
                               await ApiService.atualizarProfessorDisciplina(disciplina['_id'], profAtual);
-                              onUpdate();
+                              _carregarDados();
+                              widget.onUpdate();
                             },
                           ),
                         )
                       ],
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Divider(height: 1),
-                    ),
-                    const Text(
-                      'Matricular Aluno (Busca por Nome, CPF ou E-mail)',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
-                    ),
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Divider(height: 1)),
+                    const Text('Matricular Aluno (Busca por Nome, CPF ou E-mail)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                     const SizedBox(height: 8),
                     TextField(
                       decoration: InputDecoration(
@@ -1893,19 +2226,13 @@ class AdminDisciplinasTab extends StatelessWidget {
                         contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       ),
                       onChanged: (val) {
-                        setStateDialog(() {
-                          filtroBusca = val;
-                        });
+                        setStateDialog(() => filtroBusca = val);
                       },
                     ),
                     const SizedBox(height: 8),
                     Expanded(
                       child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
+                        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: ListView.builder(
                           itemCount: alunosFiltrados.length,
                           itemBuilder: (c, i) {
@@ -1920,8 +2247,11 @@ class AdminDisciplinasTab extends StatelessWidget {
                                   if (suc) {
                                     setStateDialog(() {
                                       matriculados.add(Aluno);
+                                      // Re-ordena sempre que entra um aluno novo
+                                      matriculados.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
                                     });
-                                    onUpdate();
+                                    _carregarDados();
+                                    widget.onUpdate();
                                   }
                                 },
                               ),
@@ -1931,18 +2261,11 @@ class AdminDisciplinasTab extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      'Matriculados (${matriculados.length})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
-                    ),
+                    Text('Matriculados (${matriculados.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                     const SizedBox(height: 8),
                     Expanded(
                       child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
+                        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                         child: ListView.builder(
                           itemCount: matriculados.length,
                           itemBuilder: (c, i) {
@@ -1959,10 +2282,9 @@ class AdminDisciplinasTab extends StatelessWidget {
                                 onPressed: () async {
                                   bool suc = await ApiService.removerAlunoDisciplina(disciplina['_id'], m['_id']);
                                   if (suc) {
-                                    setStateDialog(() {
-                                      matriculados.removeAt(i);
-                                    });
-                                    onUpdate();
+                                    setStateDialog(() => matriculados.removeAt(i));
+                                    _carregarDados();
+                                    widget.onUpdate();
                                   }
                                 },
                               ),
@@ -1989,79 +2311,170 @@ class AdminDisciplinasTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future: ApiService.buscarDisciplinas(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final disciplinas = snapshot.data ?? [];
-        
-        if (disciplinas.isEmpty) {
-          return Center(
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_todasDisciplinas.isEmpty) {
+      return Scaffold(
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _criarNova(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Nova Disciplina', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.orange,
+          foregroundColor: Colors.white,
+          elevation: 4,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.class_outlined, size: 64, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text('Nenhuma disciplina criada.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final profMap = <String, String>{};
+    for(var d in _todasDisciplinas) {
+       if(d['professor'] != null) {
+          profMap[d['professor']['_id']] = d['professor']['nome'];
+       }
+    }
+
+    // ORDENAR O MENU SUSPENSO DE PROFESSORES ALFABETICAMENTE
+    var profEntries = profMap.entries.toList();
+    profEntries.sort((a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()));
+
+    final disciplinasFiltradas = _todasDisciplinas.where((d) {
+      final matchesQuery = (d['nome'] ?? '').toLowerCase().contains(_searchQuery);
+      final profId = d['professor'] != null ? d['professor']['_id'] : null;
+      final matchesProf = _filtroProfessorId == null || profId == _filtroProfessorId;
+      return matchesQuery && matchesProf;
+    }).toList();
+
+    // ORDENAR A LISTA DE DISCIPLINAS ALFABETICAMENTE
+    disciplinasFiltradas.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _criarNova(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Nova Disciplina', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+        elevation: 4,
+      ),
+      body: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.class_outlined, size: 64, color: Colors.grey.shade300),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Pesquisar disciplina...',
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF4F7FC),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val.toLowerCase();
+                    });
+                  },
+                ),
                 const SizedBox(height: 16),
-                Text('Nenhuma disciplina criada.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Filtrar por Professor',
+                    filled: true,
+                    fillColor: const Color(0xFFF4F7FC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: const Icon(Icons.person_search_rounded, color: Colors.grey),
+                  ),
+                  value: _filtroProfessorId,
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Todos os Professores', style: TextStyle(fontWeight: FontWeight.bold))),
+                    // Usa a lista ordenada agora
+                    ...profEntries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _filtroProfessorId = val;
+                    });
+                  },
+                ),
               ],
             ),
-          );
-        }
-
-        return Scaffold(
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _criarNova(context, disciplinas),
-            icon: const Icon(Icons.add),
-            label: const Text('Nova Disciplina', style: TextStyle(fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-            elevation: 4,
           ),
-          body: ListView.builder(
-            padding: const EdgeInsets.all(16).copyWith(bottom: 80),
-            itemCount: disciplinas.length,
-            itemBuilder: (context, index) {
-              final d = disciplinas[index];
-              return Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  leading: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.book_rounded, color: Colors.blue.shade800, size: 28),
-                  ),
-                  title: Text(
-                    d['nome'] ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF001A33)),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 6.0),
-                    child: Row(
-                      children: [
-                        Icon(Icons.groups_rounded, size: 16, color: Colors.grey.shade500),
-                        const SizedBox(width: 4),
-                        Text('${d['alunos']?.length ?? 0} Alunos matriculados', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                  trailing: Container(
-                    decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                    child: IconButton(
-                      icon: Icon(Icons.settings_rounded, color: Colors.orange.shade700),
-                      onPressed: () => _editarMatriculasEDisciplina(context, d),
-                    ),
-                  ),
+          Expanded(
+            child: disciplinasFiltradas.isEmpty 
+              ? Center(child: Text('Nenhuma disciplina corresponde aos filtros.', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16).copyWith(bottom: 80),
+                  itemCount: disciplinasFiltradas.length,
+                  itemBuilder: (context, index) {
+                    final d = disciplinasFiltradas[index];
+                    return Card(
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        leading: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.book_rounded, color: Colors.blue.shade800, size: 28),
+                        ),
+                        title: Text(
+                          d['nome'] ?? '',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF001A33)),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 6.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Prof: ${d['professor']?['nome'] ?? "Sem professor atribuído"}', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.groups_rounded, size: 16, color: Colors.grey.shade500),
+                                  const SizedBox(width: 4),
+                                  Text('${d['alunos']?.length ?? 0} Alunos matriculados', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        trailing: Container(
+                          decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
+                          child: IconButton(
+                            icon: Icon(Icons.settings_rounded, color: Colors.orange.shade700),
+                            onPressed: () => _editarMatriculasEDisciplina(context, d),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -2088,6 +2501,7 @@ class _ProfessorDashboardState extends State<ProfessorDashboard> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          // ÍCONE DE DÚVIDAS REMOVIDO DAQUI (Aparecerá apenas no Fórum)
           IconButton(
             icon: const Icon(Icons.person_outline_rounded),
             onPressed: () {
@@ -2226,8 +2640,17 @@ class _ProfessorDiarioPageState extends State<ProfessorDiarioPage> {
     notas = List.from(widget.disciplina['notas'] ?? []);
     faltas = List.from(widget.disciplina['faltas'] ?? []);
   }
-
+/*
   void _salvarAutomaticamente() {
+    ApiService.salvarDiario(widget.disciplina['_id'], avaliacoes, notas, faltas);
+  }*/
+  void _salvarAutomaticamente() {
+    // 1. Atualiza a memória local instantaneamente para os dados não sumirem ao sair e voltar
+    widget.disciplina['avaliacoes'] = avaliacoes;
+    widget.disciplina['notas'] = notas;
+    widget.disciplina['faltas'] = faltas;
+
+    // 2. Envia a atualização para a base de dados em segundo plano
     ApiService.salvarDiario(widget.disciplina['_id'], avaliacoes, notas, faltas);
   }
 
@@ -2813,6 +3236,9 @@ class _AlunoDashboardState extends State<AlunoDashboard> {
   }
 }
 
+// ============================================================================
+// ALUNO - VISUALIZAR DIAS TOTAIS, STATUS E NOTAS (DESIGN REFINADO)
+// ============================================================================
 class AlunoDisciplinaPage extends StatelessWidget {
   final Map<String, dynamic> disciplina;
   final Map<String, dynamic> usuarioLogado;
@@ -2842,6 +3268,58 @@ class AlunoDisciplinaPage extends StatelessWidget {
 
     final List<dynamic> atividades = disciplina['avaliacoes'] ?? [];
 
+    // ==========================================
+    // NOVA LÓGICA: VERIFICA SE TODAS AS ATIVIDADES JÁ TÊM NOTA
+    // ==========================================
+    bool todasAvaliadas = true;
+    if (atividades.isEmpty) {
+      todasAvaliadas = false;
+    } else {
+      for (var ativ in atividades) {
+        bool temNota = (disciplina['notas'] as List<dynamic>? ?? []).any(
+          (n) => n['alunoId'] == usuarioLogado['_id'] && n['avaliacaoNome'] == ativ['nome']
+        );
+        if (!temNota) {
+          todasAvaliadas = false;
+          break;
+        }
+      }
+    }
+
+    // CORES E TEXTOS DINÂMICOS
+    Color boxColor;
+    Color borderColor;
+    Color iconColor;
+    Color textColor;
+    Color badgeColor;
+    String badgeText;
+
+    if (pontosObtidos >= 60) {
+      // APROVADO
+      boxColor = Colors.green.shade50;
+      borderColor = Colors.green.shade200;
+      iconColor = Colors.green;
+      textColor = Colors.green.shade800;
+      badgeColor = Colors.green.shade100;
+      badgeText = 'Aprovado';
+    } else if (todasAvaliadas && pontosObtidos < 60) {
+      // REPROVADO (Sem chances de recuperar)
+      boxColor = Colors.red.shade50;
+      borderColor = Colors.red.shade200;
+      iconColor = Colors.red;
+      textColor = Colors.red.shade800;
+      badgeColor = Colors.red.shade100;
+      badgeText = 'Reprovado';
+    } else {
+      // EM CURSO (Faltam pontos, mas ainda há avaliações)
+      boxColor = Colors.blue.shade50;
+      borderColor = Colors.blue.shade200;
+      iconColor = Colors.blue;
+      textColor = Colors.blue.shade900;
+      badgeColor = Colors.blue.shade100;
+      badgeText = 'Faltam ${60 - pontosObtidos} pts';
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(disciplina['nome']),
@@ -2869,9 +3347,9 @@ class AlunoDisciplinaPage extends StatelessWidget {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: pontosObtidos >= 60 ? Colors.green.shade50 : Colors.blue.shade50,
+                        color: boxColor,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: pontosObtidos >= 60 ? Colors.green.shade200 : Colors.blue.shade200),
+                        border: Border.all(color: borderColor),
                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]
                       ),
                       child: Padding(
@@ -2879,30 +3357,30 @@ class AlunoDisciplinaPage extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.star_rounded, color: pontosObtidos >= 60 ? Colors.green : Colors.blue, size: 40),
+                            Icon(Icons.star_rounded, color: iconColor, size: 40),
                             const SizedBox(height: 12),
                             Text(
                               '$pontosObtidos pts',
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w900,
-                                color: pontosObtidos >= 60 ? Colors.green.shade800 : Colors.blue.shade900
+                                color: textColor
                               )
                             ),
                             const SizedBox(height: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
-                                color: pontosObtidos >= 60 ? Colors.green.shade100 : Colors.blue.shade100,
+                                color: badgeColor,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                pontosObtidos >= 60 ? 'Aprovado' : 'Faltam ${60 - pontosObtidos} pts',
+                                badgeText,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: pontosObtidos >= 60 ? Colors.green.shade800 : Colors.blue.shade800
+                                  color: textColor
                                 ),
                               ),
                             ),

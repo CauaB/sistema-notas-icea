@@ -25,3 +25,19 @@ exports.buscarChat = async (req, res) => {
         res.status(500).json({ erro: 'Erro ao buscar chat' });
     }
 };
+
+exports.marcarMensagensLidas = async (req, res) => {
+  try {
+    const { meuId, contatoId } = req.params;
+    
+    // Atualiza todas as mensagens enviadas PELO contato PARA MIM que ainda estão lida: false
+    await Mensagem.updateMany(
+      { remetente: contatoId, destinatario: meuId, lida: false },
+      { $set: { lida: true } }
+    );
+    
+    res.status(200).json({ sucesso: true, mensagem: 'Mensagens lidas com sucesso.' });
+  } catch (error) {
+    res.status(500).json({ sucesso: false, erro: 'Erro ao atualizar mensagens.' });
+  }
+};

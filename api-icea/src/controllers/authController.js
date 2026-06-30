@@ -1,4 +1,5 @@
 const Usuario = require('../models/Usuario');
+const Mensagem = require('../models/Mensagem');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -60,8 +61,26 @@ exports.login = async (req, res) => {
 
 exports.listarUsuarios = async (req, res) => {
   try {
-    // Pede ao MongoDB todos os usuários salvos
-    const usuarios = await Usuario.find(); 
+    const usuarios = await Usuario.find().lean(); 
+    
+    // 👇 Mudou de req.headers para req.query 👇
+    const meuId = req.query.meuId; 
+
+    if (meuId) {
+      const mensagensNaoLidas = await Mensagem.find({ destinatario: meuId, lida: false }).lean();
+      
+      const contagemNaoLidas = {};
+      mensagensNaoLidas.forEach(msg => {
+        const idRemetente = msg.remetente.toString();
+        contagemNaoLidas[idRemetente] = (contagemNaoLidas[idRemetente] || 0) + 1;
+      });
+
+      for (let u of usuarios) {
+        u.mensagensNaoLidas = contagemNaoLidas[u._id.toString()] || 0;
+        u.hasUnread = u.mensagensNaoLidas > 0;
+      }
+    }
+
     res.status(200).json(usuarios);
   } catch (erro) {
     console.log("Erro ao buscar usuários:", erro);
@@ -72,34 +91,41 @@ exports.listarUsuarios = async (req, res) => {
 exports.atualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nome, email, cpf, dataNascimento, tipo, senha } = req.body;
+    // ADICIONADO O CAMPO 'observacao' AQUI 👇
+    const { nome, email, cpf, dataNascimento, tipo, senha, observacao } = req.body; 
 
     // 1. Busca o usuário atual no banco de dados
     const usuario = await Usuario.findById(id);
+    
     if (!usuario) {
       return res.status(404).json({ erro: 'Utilizador não encontrado' });
     }
 
-    // 2. Atualiza os campos básicos se eles mudaram
-    if (nome) usuario.nome = nome;
-    if (email) usuario.email = email;
-    if (cpf) usuario.cpf = cpf;
-    if (dataNascimento) usuario.dataNascimento = dataNascimento;
-    if (tipo) usuario.tipo = tipo;
+    // 2. Atualiza os dados básicos
+    usuario.nome = nome || usuario.nome;
+    usuario.email = email || usuario.email;
+    usuario.cpf = cpf || usuario.cpf;
+    usuario.dataNascimento = dataNascimento || usuario.dataNascimento;
+    usuario.tipo = tipo || usuario.tipo;
 
-    // 3. SEGREDO REVELADO: Criptografa a nova senha antes de salvar!
-    if (senha && senha.trim().length >= 6) {
-      const salt = await bcrypt.genSalt(10);
-      usuario.senha = await bcrypt.hash(senha, salt); // Transforma em hash seguro
+    // 3. Atualiza a observação (se foi enviada pelo Flutter)
+    if (observacao !== undefined) {
+      usuario.observacao = observacao;
     }
 
-    // 4. Salva o documento atualizado no MongoDB
-    await usuario.save();
+    // 4. Só atualiza a senha se o utilizador digitou uma nova
+    if (senha && senha.trim() !== '') {
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.genSalt(10);
+      usuario.senha = await bcrypt.hash(senha, salt);
+    }
 
-    res.status(200).json({ sucesso: true, mensagem: 'Dados atualizados com sucesso!' });
-  } catch (error) {
-    console.error("Erro ao atualizar utilizador:", error);
-    res.status(500).json({ erro: 'Erro interno ao atualizar os dados.' });
+    await usuario.save();
+    res.status(200).json({ mensagem: 'Usuário atualizado com sucesso!' });
+
+  } catch (erro) {
+    console.log("Erro ao atualizar usuário:", erro);
+    res.status(500).json({ erro: 'Erro ao atualizar usuário' });
   }
 };
 
