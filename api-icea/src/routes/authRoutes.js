@@ -8,5 +8,6 @@ router.post('/login', authController.login);
 router.get('/usuarios', authController.listarUsuarios);
 router.put('/usuarios/:id', authController.atualizarUsuario);
 router.delete('/usuarios/:id', authController.deletarUsuario);
+router.put('/remover-foto', authController.removerFotoPerfil);
 
 module.exports = router;

@@ -2,25 +2,39 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Se estiver no Emulador do Android Studio, mude localhost para 10.0.2.2
-  static const String baseUrl = 'http://localhost:3000/api';
+  // http://localhost:3000/api ou http://10.0.3.2:3000
+ static const String baseUrl = 'http://10.0.3.2:3000/api';
 
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> login(String email, String senha) async {
     try {
-      final response = await http.post(
+      /*final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'senha': senha}),
       );
-
+*/
+final response = await http.post(
+  Uri.parse('$baseUrl/auth/login'),
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: jsonEncode({
+    'email': email,
+    'senha': senha,
+  }),
+);
       if (response.statusCode == 200) {
         return {'sucesso': true, 'dados': jsonDecode(response.body)};
       } else {
         return {'sucesso': false, 'erro': jsonDecode(response.body)['erro']};
       }
     } catch (e) {
-      return {'sucesso': false, 'erro': 'Falha ao conectar com o servidor.'};
+        print("ERRO LOGIN: $e");
+        return {
+          'sucesso': false,
+          'erro': e.toString(),
+        };
     }
   }
 
@@ -93,7 +107,7 @@ static Future<List<dynamic>> buscarUsuarios([String? meuId]) async {
       
       // Adiciona a observação ao envio se existir
       if (novaObservacao != null) {
-        bodyPayload['observacao'] = novaObservacao;
+        bodyPayload['observacoes'] = novaObservacao; 
       }
 
       final response = await http.put(
@@ -239,5 +253,30 @@ static Future<List<dynamic>> buscarUsuarios([String? meuId]) async {
     } catch (e) { return false; }
   }
 
-  
+  static Future<bool> salvarFotoPerfil(String id, String base64Img) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/auth/usuarios/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'fotoPerfil': base64Img}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+// ================= REMOVER FOTO DE PERFIL =================
+  static Future<bool> removerFotoPerfil(String id) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/auth/remover-foto'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id': id}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
 }

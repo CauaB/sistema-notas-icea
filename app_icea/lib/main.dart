@@ -1,6 +1,9 @@
 import 'api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   // Define a cor da barra de status do telemóvel para combinar com a App
@@ -574,26 +577,83 @@ class _PerfilPageState extends State<PerfilPage> {
   late TextEditingController _senhaCtrl;
   late TextEditingController _obsCtrl;
 
+  String? _imagemBase64;
+
   @override
   void initState() {
     super.initState();
-    _nomeCtrl = TextEditingController(text: widget.usuarioLogado['nome'] ?? 'Não cadastrado');
-    _emailCtrl = TextEditingController(text: widget.usuarioLogado['email'] ?? '');
+    // 1. Inicializa com os dados antigos imediatamente (para a tela não ficar vazia)
+    _preencherCampos(widget.usuarioLogado);
+    
+    // 2. Busca os dados atualizados no banco (para atualizar a observação)
+    _buscarDadosFrescos();
+  }
+
+  // --- NOVA FUNÇÃO AUXILIAR ---
+  void _preencherCampos(Map<String, dynamic> dados) {
+    _nomeCtrl = TextEditingController(text: dados['nome'] ?? 'Não cadastrado');
+    _emailCtrl = TextEditingController(text: dados['email'] ?? '');
     _senhaCtrl = TextEditingController(); 
     
-    String cpfCru = widget.usuarioLogado['cpf']?.toString() ?? '';
+    String cpfCru = dados['cpf']?.toString() ?? '';
     if (cpfCru.length == 11) {
       cpfCru = "${cpfCru.substring(0,3)}.${cpfCru.substring(3,6)}.${cpfCru.substring(6,9)}-${cpfCru.substring(9,11)}";
     }
     _cpfCtrl = TextEditingController(text: cpfCru.isEmpty ? 'Não cadastrado' : cpfCru);
     
-    String dataNasc = widget.usuarioLogado['dataNascimento']?.toString() ?? '';
+    String dataNasc = dados['dataNascimento']?.toString() ?? '';
     _dataNascCtrl = TextEditingController(text: dataNasc.isEmpty ? 'Não cadastrada' : dataNasc);
     
-    _tipoCtrl = TextEditingController(text: widget.usuarioLogado['tipo'] ?? 'Desconhecido');
+    _tipoCtrl = TextEditingController(text: dados['tipo'] ?? 'Desconhecido');
     
-    String obs = widget.usuarioLogado['observacao']?.toString() ?? '';
+    // GARANTIMOS O PLURAL 'observacoes' AQUI
+    String obs = dados['observacoes']?.toString() ?? '';
     _obsCtrl = TextEditingController(text: obs.isEmpty ? 'Sem observações' : obs);
+  }
+
+  // --- NOVA FUNÇÃO PARA BUSCAR DADOS DO BANCO ---
+  Future<void> _buscarDadosFrescos() async {
+    try {
+      final listaUsuarios = await ApiService.buscarUsuarios();
+      
+      final dadosAtualizados = listaUsuarios.firstWhere(
+        (u) => u['_id'] == widget.usuarioLogado['_id'],
+        orElse: () => null, // Evita quebrar se não achar
+      );
+
+      // Se encontrou os dados novos, atualiza a tela!
+      if (dadosAtualizados != null && mounted) {
+        setState(() {
+          widget.usuarioLogado.addAll(dadosAtualizados); 
+          _preencherCampos(widget.usuarioLogado);
+        });
+      }
+    } catch (e) {
+      print('Erro ao buscar dados frescos: $e');
+    }
+  }
+
+
+  // NOVA FUNÇÃO: Abre a galeria, converte a imagem para texto e salva localmente
+Future<void> _escolherESalvarFoto() async {
+    final picker = ImagePicker();
+    // Qualidade 30 para a imagem ficar bem leve no MongoDB
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 30); 
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      final base64String = base64Encode(bytes);
+
+      // Envia para o Banco de Dados!
+      bool sucesso = await ApiService.salvarFotoPerfil(widget.usuarioLogado['_id'], base64String);
+
+      if (sucesso && mounted) {
+        setState(() {
+          // Atualiza a memória local da tela imediatamente
+          widget.usuarioLogado['fotoPerfil'] = base64String;
+        });
+      }
+    }
   }
 
   void _salvarAlteracoes() async {
@@ -633,7 +693,7 @@ class _PerfilPageState extends State<PerfilPage> {
       widget.usuarioLogado['dataNascimento'] ?? '',
       widget.usuarioLogado['tipo'] ?? 'Aluno',
       senha, 
-      widget.usuarioLogado['observacao']
+      widget.usuarioLogado['observacoes']
     );
 
     if (context.mounted) Navigator.pop(context);
@@ -668,17 +728,48 @@ class _PerfilPageState extends State<PerfilPage> {
         child: Column(
           children: [
             Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.blue.shade100, width: 4),
-                ),
-                child: Icon(Icons.person_rounded, size: 64, color: Colors.blue.shade800),
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _escolherESalvarFoto, // Abre a galeria ao tocar na foto
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.blue.shade100, width: 4),
+                      ),
+                      child: CircleAvatar(
+                        radius: 60,
+                        backgroundColor: Colors.blue.shade50,
+                        backgroundImage: widget.usuarioLogado['fotoPerfil'] != null 
+                            ? MemoryImage(base64Decode(widget.usuarioLogado['fotoPerfil'])) 
+                            : null,
+                        child: widget.usuarioLogado['fotoPerfil'] == null 
+                            ? Icon(Icons.camera_enhance_rounded, size: 40, color: Colors.blue.shade800) 
+                            : null,
+                      ),
+                    ),
+                  ),
+                  // NOVO: Botão de remover foto que só aparece se o usuário tiver foto
+                  if (widget.usuarioLogado['fotoPerfil'] != null)
+                    TextButton.icon(
+                      onPressed: () async {
+                        bool sucesso = await ApiService.removerFotoPerfil(widget.usuarioLogado['_id']);
+                        if (sucesso && mounted) {
+                          setState(() {
+                            widget.usuarioLogado['fotoPerfil'] = null; // Limpa a imagem da tela
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Foto removida com sucesso!'), backgroundColor: Colors.green),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                      label: const Text('Remover foto', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(height: 32),
             
             const Align(
               alignment: Alignment.centerLeft, 
@@ -972,18 +1063,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                         return Card(
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            leading: CircleAvatar(
-                              radius: 26,
-                              backgroundColor: u['tipo'] == 'Professor' ? Colors.green.shade100 : Colors.blue.shade100,
-                              child: Text(
-                                (u['nome'] ?? 'U')[0].toUpperCase(),
-                                style: TextStyle(
-                                  color: u['tipo'] == 'Professor' ? Colors.green.shade800 : Colors.blue.shade800, 
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ),
+                            leading: AvatarUsuario(usuario: u, radius: 26),
                             title: Text(
                               // SÓ MOSTRA O NOME DA DISCIPLINA NA ABA DÚVIDAS
                               showDisciplina ? '${u['nome']} (${u['disciplinaDuvida']})' : (u['nome'] ?? ''),
@@ -1250,6 +1330,59 @@ class _ChatDisciplinaPageState extends State<ChatDisciplinaPage> {
   final TextEditingController _msgCtrl = TextEditingController();
   Map<String, dynamic>? _msgSendoRespondida;
 
+  // 1. alteracao
+  bool _temDuvidaNaoLida = false; 
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. alteracao
+    _verificarDuvidas(); 
+  }
+
+  // 3. alteracao
+Future<void> _verificarDuvidas() async {
+    final prof = widget.disciplina['professor'];
+    if (prof != null && widget.usuarioLogado['_id'] == prof['_id']) {
+      final dados = await ApiService.buscarUsuarios(widget.usuarioLogado['_id']);
+      bool encontrou = false;
+      
+      print("\n=== DEBUG FÓRUM: LUZ LARANJA (${widget.disciplina['nome']}) ===");
+
+      for (var u in dados) {
+        bool unread = u['hasUnread'] == true || (u['mensagensNaoLidas'] != null && u['mensagensNaoLidas'] > 0);
+        
+        if (unread) {
+          print("🚨 O aluno ${u['nome']} tem alguma mensagem não lida no sistema!");
+          
+          final chat = await ApiService.buscarChat(widget.usuarioLogado['_id'], u['_id']);
+          final stringDuvidaExata = '[Dúvida em ${widget.disciplina['nome']}]';
+          print("🔍 Procurando a frase exata: '$stringDuvidaExata'");
+
+          for (var msg in chat) {
+            // Verifica as mensagens desse aluno que ainda não foram lidas
+            if (msg['remetente'] == u['_id'] && msg['lida'] == false) {
+              print("Mensagem NÃO LIDA encontrada: '${msg['texto']}'");
+              
+              if ((msg['texto'] ?? '').contains(stringDuvidaExata)) {
+                print("🎯 BINGO! Encontrou uma dúvida não lida DESTA disciplina!");
+                encontrou = true;
+                break;
+              }
+            }
+          }
+        }
+        if (encontrou) break;
+      }
+      
+      print("💡 Resultado Final: A luz deve ficar acesa? $encontrou\n");
+
+      if (mounted && _temDuvidaNaoLida != encontrou) {
+        setState(() => _temDuvidaNaoLida = encontrou);
+      }
+    }
+  }
+
   String _obterDataFormatada(dynamic data) {
     if (data == null) return "Agora";
     try {
@@ -1385,17 +1518,24 @@ class _ChatDisciplinaPageState extends State<ChatDisciplinaPage> {
               padding: const EdgeInsets.only(right: 8.0),
               child: IconButton(
                 tooltip: 'Ver Dúvidas Recebidas',
-                icon: const Icon(Icons.mark_email_unread_outlined, color: Colors.orangeAccent),
+                // O SEGREDO É ESTE: Sem a palavra 'const', o ícone muda de forma e cor!
+                icon: Icon(
+                  _temDuvidaNaoLida ? Icons.mark_email_unread_outlined : Icons.mail_outline_rounded,
+                  color: _temDuvidaNaoLida ? Colors.orangeAccent : Colors.grey.shade400,
+                ),
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ChatSearchPage(
                         usuarioLogado: widget.usuarioLogado,
-                        filtroInicial: 'Dúvidas', // DIRECIONA DIRETAMENTE PARA A ABA DÚVIDAS
+                        filtroInicial: 'Dúvidas',
                       ),
                     ),
-                  );
+                  ).then((_) {
+                    // Atualiza a luz ao voltar
+                    _verificarDuvidas(); 
+                  });
                 },
               ),
             ),
@@ -1696,7 +1836,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => PerfilPage(usuarioLogado: widget.usuarioLogado)),
-                );
+                ).then((_) {
+                  setState(() {});
+                });
               },
             ),
             IconButton(
@@ -1773,7 +1915,7 @@ void _editarPerfilCompleto(BuildContext context, Map<String, dynamic> usuario) {
     final emailCtrl = TextEditingController(text: usuario['email']);
     final cpfCtrl = TextEditingController(text: usuario['cpf']);
     final dataNascCtrl = TextEditingController(text: usuario['dataNascimento']);
-    final obsCtrl = TextEditingController(text: usuario['observacao'] ?? '');
+    final obsCtrl = TextEditingController(text: usuario['observacoes'] ?? '');
     String perfilSel = usuario['tipo'] ?? 'Aluno';
 
     showDialog(
@@ -1997,14 +2139,13 @@ void _editarPerfilCompleto(BuildContext context, Map<String, dynamic> usuario) {
                     color: isPendente ? Colors.orange.shade50 : Colors.white,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      leading: CircleAvatar(
-                        radius: 24,
-                        backgroundColor: isPendente ? Colors.orange.shade100 : Colors.blue.shade50,
-                        child: Icon(
-                          isPendente ? Icons.warning_amber_rounded : Icons.person, 
-                          color: isPendente ? Colors.orange.shade800 : const Color(0xFF003366)
-                        ),
-                      ),
+                      leading: isPendente
+                            ? CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Colors.orange.shade100,
+                                child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
+                              )
+                            : AvatarUsuario(usuario: u, radius: 24),
                       title: Text(
                         u['nome'] ?? '',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF001A33)),
@@ -2507,8 +2648,11 @@ class _ProfessorDashboardState extends State<ProfessorDashboard> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => PerfilPage(usuarioLogado: widget.usuarioLogado)),
-              );
+               MaterialPageRoute(builder: (_) => PerfilPage(usuarioLogado: widget.usuarioLogado)),
+              ).then((_) {
+                // Assim que fechar a aba de Perfil, o Dashboard recarrega e a foto nova aparece.
+                setState(() {});
+              });
             },
           ),
           IconButton(
@@ -2635,7 +2779,12 @@ class _ProfessorDiarioPageState extends State<ProfessorDiarioPage> {
   @override
   void initState() {
     super.initState();
-    alunosMatriculados = widget.disciplina['alunos'] ?? [];
+    // Alterado para List.from para permitir ordenar os dados com segurança
+    alunosMatriculados = List.from(widget.disciplina['alunos'] ?? []);
+    
+    // Aplica a ordenação alfabética de A a Z ignorando maiúsculas/minúsculas
+    alunosMatriculados.sort((a, b) => (a['nome'] ?? '').toString().toLowerCase().compareTo((b['nome'] ?? '').toString().toLowerCase()));
+
     avaliacoes = List.from(widget.disciplina['avaliacoes'] ?? []);
     notas = List.from(widget.disciplina['notas'] ?? []);
     faltas = List.from(widget.disciplina['faltas'] ?? []);
@@ -2652,6 +2801,10 @@ class _ProfessorDiarioPageState extends State<ProfessorDiarioPage> {
 
     // 2. Envia a atualização para a base de dados em segundo plano
     ApiService.salvarDiario(widget.disciplina['_id'], avaliacoes, notas, faltas);
+    //alteracao
+    if (mounted) {
+      setState(() {}); 
+    }
   }
 
   int get totalPontos {
@@ -2954,10 +3107,7 @@ class _ProfessorDiarioPageState extends State<ProfessorDiarioPage> {
                         child: Theme(
                           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.indigo.shade50,
-                              child: Icon(Icons.person, color: Colors.indigo.shade400),
-                            ),
+                            leading: AvatarUsuario(usuario: Aluno, radius: 20),
                             title: Text(Aluno['nome'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                             children: avaliacoes.isEmpty
                                 ? [Padding(padding: const EdgeInsets.all(16.0), child: Text('Crie avaliações primeiro.', style: TextStyle(color: Colors.grey.shade500)))]
@@ -2973,7 +3123,8 @@ class _ProfessorDiarioPageState extends State<ProfessorDiarioPage> {
                                         trailing: SizedBox(
                                           width: 90,
                                           child: TextField(
-                                            controller: TextEditingController(text: _getNota(Aluno['_id'], aval['nome'])),
+                                            controller: TextEditingController(text: _getNota(Aluno['_id'], aval['nome']))
+  ..selection = TextSelection.collapsed(offset: _getNota(Aluno['_id'], aval['nome']).length),
                                             keyboardType: TextInputType.number,
                                             textAlign: TextAlign.center,
                                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -3127,7 +3278,10 @@ class _AlunoDashboardState extends State<AlunoDashboard> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => PerfilPage(usuarioLogado: widget.usuarioLogado)),
-              );
+              ).then((_) {
+                // Assim que fechar a aba de Perfil, o Dashboard recarrega e a foto nova aparece.
+                setState(() {});
+              });
             },
           ),
           IconButton(
@@ -3557,6 +3711,48 @@ class AlunoDisciplinaPage extends StatelessWidget {
                     }).toList(),
                   ),
           ],
+        ),
+      ),
+    );
+  }
+}
+    
+// ============================================================================
+// COMPONENTE GLOBAL DE AVATAR (LÊ DIRETO DO BANCO DE DADOS - INSTANTÂNEO)
+// ============================================================================
+class AvatarUsuario extends StatelessWidget {
+  final Map<String, dynamic> usuario;
+  final double radius;
+
+  const AvatarUsuario({super.key, required this.usuario, this.radius = 24});
+
+  @override
+  Widget build(BuildContext context) {
+    final String nome = usuario['nome']?.toString() ?? 'U';
+    final bool isProf = usuario['tipo'] == 'Professor';
+    final String? base64Img = usuario['fotoPerfil']; 
+
+    if (base64Img != null && base64Img.isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: MemoryImage(base64Decode(base64Img)),
+          backgroundColor: Colors.transparent,
+        );
+      } catch (e) {
+        debugPrint('Erro na imagem: $e');
+      }
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: isProf ? Colors.green.shade100 : Colors.blue.shade100,
+      child: Text(
+        nome.isNotEmpty ? nome[0].toUpperCase() : 'U',
+        style: TextStyle(
+          color: isProf ? Colors.green.shade800 : Colors.blue.shade800,
+          fontWeight: FontWeight.bold,
+          fontSize: radius * 0.6,
         ),
       ),
     );

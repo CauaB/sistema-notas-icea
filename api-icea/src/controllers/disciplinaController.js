@@ -4,8 +4,8 @@ const Usuario = require('../models/Usuario');
 exports.listarDisciplinas = async (req, res) => {
   try {
     const disciplinas = await Disciplina.find()
-      .populate('professor', 'nome email')
-      .populate('alunos', 'nome email');
+      .populate('alunos', 'nome email cpf fotoPerfil') 
+      .populate('professor', 'nome email fotoPerfil')  
     res.status(200).json(disciplinas);
   } catch (erro) {
     res.status(500).json({ erro: 'Erro ao buscar disciplinas.' });

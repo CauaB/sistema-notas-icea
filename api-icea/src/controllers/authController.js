@@ -5,19 +5,38 @@ const jwt = require('jsonwebtoken');
 
 exports.registrar = async (req, res) => {
   try {
-    // AGORA RECEBE CPF E DATA DE NASCIMENTO
-    const { nome, email, cpf, dataNascimento, senha } = req.body; 
-    
+    const { nome, email, cpf, dataNascimento, senha, obs } = req.body;
+
+    // 1. VERIFICAÇÕES VÊM PRIMEIRO
+    const emailExiste = await Usuario.findOne({ email });
+    if (emailExiste) {
+      return res.status(400).json({ erro: 'Este e-mail já está em uso.' });
+    }
+
+    const cpfExiste = await Usuario.findOne({ cpf });
+    if (cpfExiste) {
+      return res.status(400).json({ erro: 'Este CPF já está cadastrado no sistema.' });
+    }
+
+    // 2. SE PASSOU NAS VERIFICAÇÕES, GERA A SENHA E SALVA
     const salt = await bcrypt.genSalt(10);
     const senhaHash = await bcrypt.hash(senha, salt);
 
-    const novoUsuario = new Usuario({ 
-      nome, email, cpf, dataNascimento, senha: senhaHash, tipo: 'Pendente' 
+    const novoUsuario = new Usuario({
+      nome, 
+      email, 
+      cpf, 
+      dataNascimento, 
+      senha: senhaHash, 
+      tipo: 'Pendente',
+      observacoes: obs
     });
+
     await novoUsuario.save();
 
     res.status(201).json({ mensagem: 'Usuário criado com sucesso e aguardando aprovação!' });
   } catch (erro) {
+    console.error("Erro no registro:", erro); 
     res.status(500).json({ erro: 'Erro ao criar usuário.' });
   }
 };
@@ -50,7 +69,8 @@ exports.login = async (req, res) => {
         email: usuario.email,
         tipo: usuario.tipo,
         cpf: usuario.cpf,
-        dataNascimento: usuario.dataNascimento
+        dataNascimento: usuario.dataNascimento,
+        fotoPerfil: usuario.fotoPerfil
       }
     });
   } catch (erro) {
@@ -91,35 +111,39 @@ exports.listarUsuarios = async (req, res) => {
 exports.atualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    // ADICIONADO O CAMPO 'observacao' AQUI 👇
-    const { nome, email, cpf, dataNascimento, tipo, senha, observacao } = req.body; 
+    // 1. MUDADO PARA O PLURAL: 'observacoes' 
+    const { nome, email, cpf, dataNascimento, tipo, senha, observacoes, fotoPerfil } = req.body; 
 
-    // 1. Busca o usuário atual no banco de dados
+    // Busca o usuário atual no banco de dados
     const usuario = await Usuario.findById(id);
     
     if (!usuario) {
       return res.status(404).json({ erro: 'Utilizador não encontrado' });
     }
 
-    // 2. Atualiza os dados básicos
+    // Atualiza os dados básicos
     usuario.nome = nome || usuario.nome;
     usuario.email = email || usuario.email;
     usuario.cpf = cpf || usuario.cpf;
     usuario.dataNascimento = dataNascimento || usuario.dataNascimento;
     usuario.tipo = tipo || usuario.tipo;
 
-    // 3. Atualiza a observação (se foi enviada pelo Flutter)
-    if (observacao !== undefined) {
-      usuario.observacao = observacao;
+    // 2. MUDADO PARA O PLURAL AQUI TAMBÉM 👇
+    if (observacoes !== undefined) {
+      usuario.observacoes = observacoes;
     }
 
-    // 4. Só atualiza a senha se o utilizador digitou uma nova
+    // Só atualiza a senha se o utilizador digitou uma nova
     if (senha && senha.trim() !== '') {
       const bcrypt = require('bcryptjs');
       const salt = await bcrypt.genSalt(10);
       usuario.senha = await bcrypt.hash(senha, salt);
     }
 
+    if (fotoPerfil !== undefined) {
+      usuario.fotoPerfil = fotoPerfil;
+    }
+    
     await usuario.save();
     res.status(200).json({ mensagem: 'Usuário atualizado com sucesso!' });
 
@@ -136,5 +160,36 @@ exports.deletarUsuario = async (req, res) => {
     res.status(200).json({ sucesso: true, mensagem: 'Usuário excluído!' });
   } catch (erro) {
     res.status(500).json({ erro: 'Erro ao excluir usuário.' });
+  }
+};
+
+exports.removerFotoPerfil = async (req, res) => {
+  try {
+    // AQUI ESTÁ A CORREÇÃO: Pegamos o 'id' que o Flutter enviou no req.body
+    const usuarioId = req.body.id; 
+
+    if (!usuarioId) {
+      return res.status(400).json({ erro: 'ID do usuário não fornecido.' });
+    }
+
+    // Atualiza o documento setando a fotoPerfil como null
+    const usuarioAtualizado = await Usuario.findByIdAndUpdate(
+      usuarioId,
+      { fotoPerfil: null },
+      { new: true } 
+    );
+
+    if (!usuarioAtualizado) {
+      return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    }
+
+    res.status(200).json({ 
+      mensagem: 'Foto de perfil removida com sucesso!', 
+      usuario: usuarioAtualizado 
+    });
+
+  } catch (erro) {
+    console.error("Erro ao remover foto de perfil:", erro);
+    res.status(500).json({ erro: 'Erro ao remover foto de perfil.' });
   }
 };
