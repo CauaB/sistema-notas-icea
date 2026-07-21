@@ -180,6 +180,58 @@ flutter run
 
 ---
 
+## 📱 Configurando o Genymotion
+
+O aplicativo pode ser executado utilizando um dispositivo virtual criado no **Genymotion**.
+
+### 1. Abra o Genymotion
+
+Inicie o emulador criado e aguarde o Android carregar completamente.
+
+### 2. Verifique se o dispositivo foi reconhecido
+
+Execute o comando:
+
+```bash
+flutter devices
+```
+
+Se tudo estiver correto, será exibido um dispositivo semelhante a:
+
+```text
+1 connected device:
+
+Genymotion Phone • emulator-5554 • android-x64 • Android 13 (API 33)
+```
+
+### 3. Execute o aplicativo
+
+Com o emulador aberto, execute:
+
+```bash
+flutter run
+```
+
+Caso exista mais de um dispositivo conectado, utilize:
+
+```bash
+flutter devices
+```
+
+Para listar os dispositivos disponíveis e execute:
+
+```bash
+flutter run -d <ID_DO_DISPOSITIVO>
+```
+
+Exemplo:
+
+```bash
+flutter run -d emulator-5554
+```
+
+---
+
 # 🔐 Variáveis de Ambiente
 
 Caso utilize um arquivo `.env`, crie-o na pasta da API.
