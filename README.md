@@ -245,3 +245,10 @@ MONGO_URI=mongodb://localhost:27017/icea
 
 JWT_SECRET=sua_chave_secreta
 ```
+
+---
+
+# 🤖 Declaração de Uso de Inteligência Artificial
+
+Em conformidade com as diretrizes estabelecidas pela **Resolução CONPEP nº 144/2025**, declaro que o desenvolvimento deste projeto contou com o suporte complementar do modelo de Inteligência Artificial Generativa **Gemini (versão 3.1 Pro)**.
+
